@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,34 +33,32 @@ namespace WindowsAsync1
             //Console.ReadKey();
 
             logger.Info("Основной поток закончил работу");
+            textBox1.AppendText("Основной поток закончил работу\r\n");
 
         }
-    }
-    class MyClass:Form1
-    {
-        public void Operation()
+
+
+        private void button2_Click(object sender, EventArgs e)
         {
-            //textBox1.AppendText($"Operation ThreadID {Thread.CurrentThread.ManagedThreadId}\r\n");
-            logger.Info($"Operation ThreadID {Thread.CurrentThread.ManagedThreadId}\r\n");
-
-            logger.Info("Begin");
-            Thread.Sleep(2000);
-            logger.Info("End");
+            WorkAs();
         }
 
-        public async void OperationAsync()
+        private async void WorkAs()
         {
-            // Id потока совпадает с Id первичного потока. Это значит, что
-            // данный метод начинает выполняться в контексте первичного потока.
-            logger.Info($"OperationAsync (Part I) ThreadID {Thread.CurrentThread.ManagedThreadId}\r\n");
+            await Task.Run(() =>
+            {
 
-            Task task = new Task(Operation);
-            task.Start();
-            await task;
+                Thread.Sleep(8000);
+                textBox1.Invoke(new MethodInvoker(() =>
+                    {
+                        textBox1.AppendText($"Operation ThreadID {Thread.CurrentThread.ManagedThreadId}\r\n");
+                    }));
 
-            // Id потока совпадает с Id вторичного потока. Это значит, что
-            // данный метод заканчивает выполняться в контексте вторичного потока.
-            logger.Info($"OperationAsync (Part II) ThreadID {Thread.CurrentThread.ManagedThreadId}");
+
+            });
+            Thread.Sleep(8000);
         }
+
+
     }
 }
