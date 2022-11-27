@@ -1,4 +1,5 @@
-﻿using NLog;
+﻿using Config.Net;
+using NLog;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -16,10 +17,12 @@ namespace WindowsAsync1
 {
     public partial class Form1 : Form
     {
+       
         public Logger logger = LogManager.GetCurrentClassLogger();
         public Form1()
         {
             InitializeComponent();
+
         }
 
         public void button1_Click(object sender, EventArgs e)
@@ -34,6 +37,13 @@ namespace WindowsAsync1
 
             logger.Info("Основной поток закончил работу");
             textBox1.AppendText("Основной поток закончил работу\r\n");
+
+            IMySettings settings = new ConfigurationBuilder<IMySettings>()
+                .UseIniFile(@"config.ini", true)
+                .Build();
+            textBox1.AppendText($"MyOption: {settings.MyOption} \r\n");
+            textBox1.AppendText($"Adress: {settings.Adress} \r\n");
+
 
         }
 
@@ -60,5 +70,11 @@ namespace WindowsAsync1
         }
 
 
+    }
+
+    public interface IMySettings
+    {
+        string MyOption { get; }
+        string Adress { get; }
     }
 }
