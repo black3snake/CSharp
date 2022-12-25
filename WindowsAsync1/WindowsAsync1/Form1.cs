@@ -17,7 +17,9 @@ namespace WindowsAsync1
 {
     public partial class Form1 : Form
     {
-       
+        public IMySettings settings = new ConfigurationBuilder<IMySettings>()
+            .UseIniFile(@"config.ini", true)
+            .Build();
         public Logger logger = LogManager.GetCurrentClassLogger();
         public Form1()
         {
@@ -38,11 +40,12 @@ namespace WindowsAsync1
             logger.Info("Основной поток закончил работу");
             textBox1.AppendText("Основной поток закончил работу\r\n");
 
-            IMySettings settings = new ConfigurationBuilder<IMySettings>()
-                .UseIniFile(@"config.ini", true)
-                .Build();
             textBox1.AppendText($"MyOption: {settings.MyOption} \r\n");
             textBox1.AppendText($"Adress: {settings.Adress} \r\n");
+            foreach (var item in settings.UserNameEx)
+            {
+                textBox1.AppendText($"{item} \r\n");
+            }
 
 
         }
@@ -61,12 +64,12 @@ namespace WindowsAsync1
                 Thread.Sleep(8000);
                 textBox1.Invoke(new MethodInvoker(() =>
                     {
-                        textBox1.AppendText($"Operation ThreadID {Thread.CurrentThread.ManagedThreadId}\r\n");
+                        textBox1.AppendText($"Operation ThreadID {Thread.CurrentThread.ManagedThreadId} + {settings.Adress}\r\n");
                     }));
 
 
             });
-            Thread.Sleep(8000);
+            Thread.Sleep(2000);
         }
 
 
@@ -76,5 +79,6 @@ namespace WindowsAsync1
     {
         string MyOption { get; }
         string Adress { get; }
+        IEnumerable<string> UserNameEx { get; }
     }
 }
