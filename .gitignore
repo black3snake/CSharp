@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/AutoOutlookRims/AutoOutlookRims/exusersfile.txt
+/AutoOutlookRims/AutoOutlookRims/config.ini
+*.config_
+*.exe
