@@ -56,10 +56,10 @@ namespace AutoOutlookRims //.SendMail
 	                        </tr>
 	                        <tr>
 		                    <td colspan='2' align='left'>5. Список пользователей исключенных из обработки программы:</td>
-		                    <td align='center'>{configiniP.UserNameEx.Count()}</td>
+		                    <td align='center'>{exlistusers.Count()}</td>
 	                        </tr>
 	                        <tr>
-		                    <td colspan='3' align='left'>{string.Join(" ", exlistusers.Select(p => p))}</td>
+		                    <td colspan='3' align='left'>{string.Join(",", exlistusers.Select(p => p)).TrimEnd(',')}</td>
 	                        </tr>                            
                             </table>";
             string htmlF = @"</html>";

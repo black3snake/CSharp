@@ -16,17 +16,18 @@ using System.Threading.Tasks;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace AutoOutlookRims
 {
     public partial class Program
     {
         #region AES начальные данные
-        static string passPhrase = "TestP";        //Может быть любой строкой
-        static string saltValue = "TestSalt";        // Может быть любой строкой
+        static string passPhrase = "TestPassphrase";        //Может быть любой строкой
+        static string saltValue = "TestSaltValue";        // Может быть любой строкой
         static string hashAlgorithm = "SHA256";             // может быть "MD5"
         static int passwordIterations = 2;                //Может быть любым числом
-        static string initVector = "!1ad3d%657rtgf"; // Должно быть 16 байт
+        static string initVector = "!1A3g2D4s9K556g7"; // Должно быть 16 байт
         static int keySize = 256;                // Может быть 192 или 128
         #endregion
 
@@ -47,7 +48,7 @@ namespace AutoOutlookRims
         static bool statusZDataSQL;
         static bool statusCheckAutoAnswer;
         // создадим булеву переменную для отладки если true то времязатратные методы отключены
-        static bool startDebug = true;
+        static bool startDebug = false;
 
         static Logger logger = LogManager.GetCurrentClassLogger();
         static Dictionary<string, string> DLeaveType = new Dictionary<string, string>()
@@ -220,22 +221,27 @@ namespace AutoOutlookRims
             }
 
             // Записываем данные в Базу данных на сервере SQL
-            if (SaveDB())
+            if (!startDebug)
             {
-                Console.WriteLine("Данные в сервер MS SQL записаны -> Летим дальше");
-                logger.Info("Данные в сервер MS SQL записаны -> Летим дальше");
-            }
-            else
-            {
-                Console.WriteLine("Что-то не так");
-                logger.Info("Что-то не так, не получилось записать в базу SQL");
-                Console.ReadKey();
-                System.Environment.Exit(0);
+                if (SaveDB())
+                {
+                    Console.WriteLine("Данные в сервер MS SQL записаны -> Летим дальше");
+                    logger.Info("Данные в сервер MS SQL записаны -> Летим дальше");
+                }
+                else
+                {
+                    Console.WriteLine("Что-то не так");
+                    logger.Info("Что-то не так, не получилось записать в базу SQL");
+                    Console.ReadKey();
+                    System.Environment.Exit(0);
+                }
             }
 
             // Проверка в RIMS и установка Автоответа в SQL DB (PLINQ - несколькими потоками)
             if (!startDebug)
             {
+                Console.WriteLine("Проверка статусов в RIMS и установка Автоответа в SQL");
+                logger.Info("Проверка статусов в RIMS и установка Автоответа в SQL");
                 if (CheckSetAutoAnswer())
                 {
                     Console.WriteLine("Данные о статусе Автоответа пользователей записаны в нашу Базу -> Летим дальше");
@@ -261,12 +267,58 @@ namespace AutoOutlookRims
             }
 
             // Простой вывод пользователей которые попали в список исключений
+            string exuser = "";
             foreach (var item in exlistusers)
             {
                 Console.Write($"{item} ");
-                logger.Info($"{item} ");
+                exuser += item + ",";
             }
+            logger.Info("Пользователи находящиеся в исключениях");
+            logger.Info($"{exuser.TrimEnd(' ',',')}");
             Console.WriteLine();
+
+            // Определим количество разрешенных лог файлов и возьмем его в config.ini
+            string[] filePaths = Directory.GetFiles(@"logs\", "*.log");
+            string[] filePaths2 = null;
+            if (filePaths.Count() > configiniP.QuantityLogs)
+            {
+                DateTime dtDate;
+                CultureInfo provider = CultureInfo.CreateSpecificCulture("en-US");
+                DateTimeStyles styles = DateTimeStyles.None;
+                int count = 0;
+                foreach (var logFile in filePaths)
+                {
+                    if (DateTime.TryParse(logFile.Remove(logFile.Length-4).Remove(0, 5), provider, styles, out dtDate))
+                    {
+                        if (DateTime.Today.AddDays(-configiniP.QuantityLogs) > dtDate)
+                        {
+                            if (filePaths2?.Count() == configiniP.QuantityLogs + 1) { break; }
+                            //Console.WriteLine($"{DateTime.Today.AddDays(-configiniP.QuantityLogs)} > {dtDate}" );
+                            try
+                            {
+                                File.Delete(logFile);
+                                count++;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                            }
+                            //continue;
+                        }
+                        //Console.WriteLine($"{logFile} -> {dtDate}");
+                    }
+                    filePaths2 = Directory.GetFiles(@"logs\", "*.log");
+                }
+                Console.WriteLine($"Всего было лог файлов {filePaths.Length} из них удалено старых {count}");
+                logger.Info($"Всего было лог файлов {filePaths.Length} из них удалено старых {count}");
+                
+                Console.WriteLine($"Дата устаревания {DateTime.Today.AddDays(-configiniP.QuantityLogs)} и разрешенное кол-во логов {configiniP.QuantityLogs}");
+                logger.Info($"Дата устаревания {DateTime.Today.AddDays(-configiniP.QuantityLogs)} и разрешенное кол-во логов {configiniP.QuantityLogs}");
+
+            }
+            
+            //Console.WriteLine("Конец отчета, press Any key");
+            logger.Info("Конец отчета");
 
             // Будем формировать архивный файл отчета, для отправки в письме
             string pathFL = $"{dtlog:yyyy-MM-dd}.log";
@@ -278,37 +330,40 @@ namespace AutoOutlookRims
                     archive.CreateEntryFromFile($@"logs\{pathFL}", pathFL);
                 }
             }
-
             // вот тут будем формировать отчеты в письме
             //Program2 send22 = new Program2();
             //if(await send22.SendM(configiniP, countDB))
-            if (await SendM())
+            if (!startDebug)
             {
-                Console.WriteLine($"Письмо отправлено");
-                logger.Info($"Письмо отправлено");
-            }
-            else
-            {
-                Console.WriteLine($"Письмо НЕ отправлено");
-                logger.Info($"Письмо НЕ отправлено");
+                if (await SendM())
+                {
+                    Console.WriteLine($"Письмо отправлено");
+                    logger.Info($"Письмо отправлено");
+                }
+                else
+                {
+                    Console.WriteLine($"Письмо НЕ отправлено");
+                    logger.Info($"Письмо НЕ отправлено");
+                }
             }
 
             // Удалим ненужный архивный файл отчета
-            try
+            if (!startDebug)
             {
-                if (File.Exists(pathArhivFL))
+                try
                 {
-                    File.Delete(pathArhivFL);
+                    if (File.Exists(pathArhivFL))
+                    {
+                        File.Delete(pathArhivFL);
+                    }
                 }
-            } catch (Exception ex) {
-                Console.WriteLine(ex.Message);
-                logger.Info(ex.Message);
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    logger.Info(ex.Message);
+                }
             }
-
-            Console.WriteLine("Конец отчета, press Any key");
-            logger.Info("Конец отчета");
-
-            Console.ReadKey();
+            //Console.ReadKey();
         }
 
         // Testing SQL 
@@ -599,7 +654,7 @@ namespace AutoOutlookRims
             using (DataModelContext context = new DataModelContext())
             {
                 // не выбираються записи в базе с автоответами 3 уже постав. ранее и 4 установлен свой
-                var listsIdDB = context.Datausers.Where(l => l.AnswerId != 3 | l.AnswerId != 4).Select(l => l.AccountName).ToList();
+                var listsIdDB = context.Datausers.Where(l => l.AnswerId != 3 && l.AnswerId != 4).Select(l => l.AccountName).ToList();
                 foreach (var item in listsIdDB)
                 {
                     listsID.Add(item);
@@ -772,7 +827,7 @@ namespace AutoOutlookRims
                     if (euser != null)
                     {
                         euser.AnswerId = 4;
-                        //context.SaveChanges();
+                        context.SaveChanges();
                         Console.WriteLine($"** Исключение из INI ** установим статус автоответа для {acount}: 4 и запишем в DB");
                         logger.Info($"** Исключение из INI ** установим статус автоответа для {acount}: 4 и запишем в DB");
                     }
@@ -790,9 +845,9 @@ namespace AutoOutlookRims
             {
                 using (StreamReader streamReader = new StreamReader(configiniP.exUsersFile, Encoding.GetEncoding(1251)))
                 {
-                    while ((s = streamReader.ReadLine()) != null )
+                    while ((s = streamReader.ReadLine()) != null)
                     {
-                        if (Regex.IsMatch(s, @"^;"))
+                        if (Regex.IsMatch(s, @"^;") | string.IsNullOrEmpty(s))
                             continue;
                         s = s.Trim();
                         if(Regex.IsMatch(s, " "))
@@ -844,7 +899,7 @@ namespace AutoOutlookRims
                 foreach (var ds in datausers)
                 {
                     // для проверки только 2 записи
-                    //if (count0 > 100) break;
+                    //if (count0 > 4) break;
 
                     qtables.Add(ds);
                     count0++;
@@ -867,8 +922,8 @@ namespace AutoOutlookRims
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            qtables.Where(q => q.AnswerName != "AU" | q.AnswerName != "AG").AsParallel().WithDegreeOfParallelism(options.MaxDegreeOfParallelism).ForAll(q => { MyTaskSet(q); });
-
+            qtables.Where(q => q.AnswerName != "AU" && q.AnswerName != "AG").AsParallel().WithDegreeOfParallelism(options.MaxDegreeOfParallelism).ForAll(q => { MyTaskSet(q); });
+            // | q.AnswerName != "AG"
             stopwatch.Stop();
             TimeSpan stopwatchElapsed = stopwatch.Elapsed;
             var milsec = Convert.ToInt32(stopwatchElapsed.TotalMilliseconds);
@@ -1036,7 +1091,8 @@ namespace AutoOutlookRims
         int Port { get; }
         // названия файла для исключений пользователей
         string exUsersFile { get; }
-
+        // количество лог файлов в директории
+        int QuantityLogs { get; }
 
     }
 
